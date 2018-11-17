@@ -1,0 +1,123 @@
+<div id="hook"></div>
+<script>
+function h(tag, attrs, children){
+	return {
+		tag,
+		attrs,
+		children
+	}
+}
+
+
+function mount(vdom, container){
+	if (typeof vdom === 'string'){
+		mountText(vdom, container)
+	} else {
+		mountElement(vdom, container)
+	}
+}
+
+function mountElement(vdom, container){
+	const {tag, attrs, children} = vdom
+	const el = document.createElement(tag)
+
+	vdom.el = el
+
+	if (attrs){
+		for(const key in attrs){
+			el.setAttribute(key, attrs[key])
+		}
+	}
+
+	if (children){
+		children.forEach(child => {
+			mount(child, el)
+		})
+	}
+
+	container.appendChild(el)
+}
+function mountText(vdom, container){
+	const text = document.createTextNode(vdom)
+	vdom.el = 'text'
+	container.appendChild(text)
+}
+
+function patch(vdom1, vdom2){
+	const isText1 = typeof vdom1 === 'string'
+	const isText2 = typeof vdom2 === 'string'
+	if (isText1 && isText2) {
+		patchText(vdom1, vdom2)
+	} else if (!isText1 && !isText2){
+		patchElement(vdom1, vdom2)
+	} else {
+		replaceNode(vdom1, vdom2)
+	}
+}
+
+function patchText(vdom1, vdom2){
+	const el = vdom2.el = vdom1.el
+	if (vdom2.text !== vdom1.text){
+		el.textContent = vdom2.text
+	}
+}
+
+function patchElement(vdom1, vdom2){
+	if(vdom1.tag !== vdom2.tag){
+		replaceNode(vdom1, vdom2)
+		return
+	}
+
+	vdom2.el = vdom1.el
+	// diff attrs
+	// update different ones
+	// remove ones that are no longer present
+
+	// Diff children
+	const oldChildren = vdom1.children
+	const newChildren = vdom2.children
+
+	newChildren.forEach((child, i) => {
+		const oldChild = oldChildren[i]
+		patch(oldChild, newChild)
+		if (oldChild){
+			patch(oldChild, newChild)
+		} else {
+			mount(newChild, el)
+		}
+	})
+
+	if(oldChildren.length > newChildren.length){
+		oldChildren.slice(newChildren.length).forEach(child => {
+			//remove old child
+		})
+	}
+
+}
+
+function replaceNode(vdom1, vdom2, container){
+	//Remove vdom1
+	//Mount vdom2
+}
+
+function renderApp(state){
+	return h('div', {id: 'foo'},[
+		h('span', null, [state.msg]),
+		h('span', null, ['world'])
+	])
+}
+
+// App boot up
+const vdom1 = render({
+	msg: 'hello'
+})
+
+mount(vdom, document.getElementById('hook') )
+
+//this.msg = 'bye'
+const vdom2 = render({
+	msg: 'bye'
+})
+
+patch(vdom1, vdom2)
+</script>

@@ -1,0 +1,183 @@
+<div id="app"></div>
+
+<script>
+// fileA.js
+let currentEffect
+class Dep {
+  constructor() {
+    this.subscribers = new Set()
+  }
+  depend() {
+    if (currentEffect) {
+      this.subscribers.add(currentEffect)
+    }
+  }
+  notify() {
+    this.subscribers.forEach(sub => {
+      sub()
+    })
+  }
+}
+function effect(runner) {
+  currentEffect = runner
+  runner()
+  currentEffect = null
+}
+// ---
+const depsStorage = new WeakMap()
+const handlers = {
+  get(target, key, receiver) {
+    let deps = depsStorage.get(target)
+    if (!deps) {
+      deps = {}
+      depsStorage.set(target, deps)
+    }
+    let dep = deps[key]
+    if (!dep) {
+      dep = deps[key] = new Dep()
+    }
+    dep.depend()
+    return observable(target[key])
+  },
+  set(target, key, value) {
+    target[key] = value
+    // notify
+    let deps = depsStorage.get(target)
+    if (!deps) {
+      return
+    }
+    const dep = deps[key]
+    if (dep) {
+      dep.notify()
+    }
+  }
+}
+const observedValues = new WeakMap()
+function observable(obj) {
+  if (!obj || typeof obj !== 'object') {
+    return obj
+  }
+  if (observedValues.has(obj)) {
+    return observedValues.get(obj)
+  }
+  // check if obj is an already observed value
+  const observed = new Proxy(obj, handlers)
+  observedValues.set(obj, observed)
+  return observed
+}
+// property additions / deletions
+// array index / length mutations
+// Map / Set...
+function h(tag, attrs, children) {
+  return {
+    tag,
+    attrs,
+    children: children && children.map(c => {
+      if (typeof c === 'string') {
+        return {
+          text: c
+        }
+      } else {
+        return c
+      }
+    })
+  }
+}
+function mount(vdom, container) {
+  if (vdom.text) {
+    mountText(vdom, container)
+  } else {
+    mountElement(vdom, container)
+  }
+}
+function mountElement(vdom, container) {
+  const { tag, attrs, children } = vdom
+  const el = document.createElement(tag)
+  vdom.el = el
+  if (attrs) {
+    for (const key in attrs) {
+      el.setAttribute(key, attrs[key])
+    }
+  }
+  if (children) {
+    children.forEach(child => {
+      mount(child, el)
+    })
+  }
+  container.appendChild(el)
+}
+function mountText(vdom, container) {
+  const text = document.createTextNode(vdom.text)
+  vdom.el = text
+  container.appendChild(text)
+}
+function patch(vdom1, vdom2) {
+  const isText1 = !!vdom1.text
+  const isText2 = !!vdom2.text
+  if (isText1 && isText2) {
+    patchText(vdom1, vdom2)
+  } else if (!isText1 && !isText2) {
+    patchElement(vdom1, vdom2)
+  } else {
+    replaceNode(vdom1, vdom2)
+  }
+}
+function patchText(vdom1, vdom2) {
+  const el = vdom2.el = vdom1.el
+  if (vdom2.text !== vdom1.text) {
+    el.textContent = vdom2.text
+  }
+}
+function patchElement(vdom1, vdom2) {
+  if (vdom1.tag !== vdom2.tag) {
+    replaceNode(vdom1, vdom2)
+    return
+  }
+  const el = vdom2.el = vdom1.el
+  // diff attrs
+  // update different ones
+  // remove ones that are no longer present
+  // diff children
+  const oldChildren = vdom1.children
+  const newChildren = vdom2.children
+  newChildren.forEach((newChild, i) => {
+    const oldChild = oldChildren[i]
+    if (oldChild) {
+      patch(oldChild, newChild)
+    } else {
+      mount(newChild, el)
+    }
+  })
+  if (oldChildren.length > newChildren.length) {
+    oldChildren.slice(newChildren.length).forEach(oldChild => {
+      // remove oldChild
+    })
+  }
+}
+function replaceNode(vdom1, vdom2) {
+  // remove vdom1
+  // mount vdom2
+}
+
+// --------------
+const state = observable({
+  msg: 'hello'
+})
+function render(state) {
+  return h('div', { id: 'foo' }, [
+    h('span', null, [state.msg]),
+    h('span', null, ['world'])
+  ])
+}
+let prevVDOM
+effect(() => {
+  if (!prevVDOM) {
+    prevVDOM = render(state)
+    mount(prevVDOM, document.getElementById('app'))
+  } else {
+    const nextVDOM = render(state)
+    patch(prevVDOM, nextVDOM)
+    prevVDOM = nextVDOM
+  }
+})
+</script>

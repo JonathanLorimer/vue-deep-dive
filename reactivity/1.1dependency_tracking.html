@@ -1,0 +1,51 @@
+<div id="count">
+
+</div>
+<script>
+
+let currentEffect
+
+class Observable {
+	constructor(initialValue) {
+		this.value = initialValue
+		this.subscribers = new Set()
+	}
+
+	get(){
+		this.depend()
+		return this.value
+	}
+	set(newValue){
+		this.value = newValue
+		this.notify()
+	}
+
+	depend(){
+		if (currentEffect){
+			this.subscribers.add(currentEffect)
+		}
+	}
+	notify(){
+		this.subscribers.forEach(sub => {
+			sub()
+		})
+	}
+}
+
+function effect(runner){
+	currentEffect = runner
+	runner()
+	currentEffect = null
+}
+
+const count = new Observable(1)
+
+effect(() => {
+	document.getElementById('count').textContent = count.get()
+}) // 1
+
+count.get()
+
+count.set(2) //2
+
+</script>

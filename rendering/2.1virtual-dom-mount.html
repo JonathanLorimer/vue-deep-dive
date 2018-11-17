@@ -1,0 +1,47 @@
+<div id="hook"></div>
+<script>
+function h(tag, attrs, children){
+	return {
+		tag,
+		attrs,
+		children
+	}
+}
+
+const vdom = h('div', {id: 'foo'},[
+	h('span', null, ['hello']),
+	h('span', null, ['world'])
+])
+
+function mount(vdom, container){
+	if (typeof vdom === 'string'){
+		mountText(vdom, container)
+	} else {
+		mountElement(vdom, container)
+	}
+}
+
+function mountElement(vdom, container){
+	const {tag, attrs, children} = vdom
+	const el = document.createElement(tag)
+	if (attrs){
+		for(const key in attrs){
+			el.setAttribute(key, attrs[key])
+		}
+	}
+
+	if (children){
+		children.forEach(child => {
+			mount(child, el)
+		})
+	}
+
+	container.appendChild(el)
+}
+function mountText(vdom, container){
+	const text = document.createTextNode(vdom)
+	container.appendChild(text)
+}
+
+mount(vdom, document.getElementById('hook') )
+</script>

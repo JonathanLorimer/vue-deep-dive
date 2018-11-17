@@ -1,0 +1,78 @@
+<script>
+
+let currentEffect
+
+class Dep {
+	constructor(initialValue) {
+		this.subscribers = new Set()
+	}
+
+	depend(){
+		if (currentEffect){
+			this.subscribers.add(currentEffect)
+		}
+	}
+	notify(){
+		this.subscribers.forEach(sub => {
+			sub()
+		})
+	}
+}
+
+function effect(runner){
+	currentEffect = runner
+	runner()
+	currentEffect = null
+}
+
+// ---
+
+const obj = {
+	count: 1
+}
+
+let countValue = obj.count
+let countDep = new Dep()
+
+Object.defineProperty(obj, 'count', {
+	get() {
+		countDep.depend()
+		return  countValue
+	},
+	set(newValue){
+		countValue = newValue
+		countDep.notify()
+	}
+}) 
+
+function observable(obj) {
+	Object.keys(obj).forEach(key => {
+		let value = obj[key]
+		const dep = new Dep()
+
+		Object.defineProperty(obj, key, {
+			get(){
+				dep.depend()
+				return value
+			},
+			set(newValue){
+				value = newValue
+				dep.notify()
+			}
+		})
+	})
+
+	return obj
+}
+
+const state = observable({
+	count: 0
+})
+
+effect(() => {
+	console.log(state.count)
+}) // 1
+
+state.count++
+
+</script>

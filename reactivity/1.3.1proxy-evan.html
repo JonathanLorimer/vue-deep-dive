@@ -1,0 +1,74 @@
+<div id="count"></div>
+<button onclick="state.count++">++</button>
+
+<script>
+// fileA.js
+let currentEffect
+class Dep {
+  constructor() {
+    this.subscribers = new Set()
+  }
+  depend() {
+    if (currentEffect) {
+      this.subscribers.add(currentEffect)
+    }
+  }
+  notify() {
+    this.subscribers.forEach(sub => {
+      sub()
+    })
+  }
+}
+function effect(runner) {
+  currentEffect = runner
+  runner()
+  currentEffect = null
+}
+// ---
+const depsStorage = new WeakMap()
+const handlers = {
+  get(target, key, receiver) {
+    let deps = depsStorage.get(target)
+    if (!deps) {
+      deps = {}
+      depsStorage.set(target, deps)
+    }
+    let dep = deps[key]
+    if (!dep) {
+      dep = deps[key] = new Dep()
+    }
+    dep.depend()
+    return observable(target[key])
+  },
+  set(target, key, value) {
+    target[key] = value
+    // notify
+    let deps = depsStorage.get(target)
+    if (!deps) {
+      return
+    }
+    const dep = deps[key]
+    if (dep) {
+      dep.notify()
+    }
+  }
+}
+const observedValues = new WeakMap()
+function observable(obj) {
+	if (!obj || typeof obj !== 'object') {
+		return obj
+	}
+  // check if obj is an already observed value
+  const observed = new Proxy(obj, handlers)
+  observedValues.set(obj, observed)
+  return observed
+}
+// property additions / deletions
+// array index / length mutations
+// Map / Set...
+const state = observable({})
+effect(() => {
+  document.getElementById('count').textContent = state.count
+})
+// state.count = 'changed'
+</script>

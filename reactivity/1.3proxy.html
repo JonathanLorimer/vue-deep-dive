@@ -1,0 +1,100 @@
+<script>
+
+		let currentEffect
+		
+		class Dep {
+			constructor(initialValue) {
+				this.subscribers = new Set()
+			}
+		
+			depend(){
+				if (currentEffect){
+					this.subscribers.add(currentEffect)
+				}
+			}
+			notify(){
+				this.subscribers.forEach(sub => {
+					sub()
+				})
+			}
+		}
+		
+		function effect(runner){
+			currentEffect = runner
+			runner()
+			currentEffect = null
+		}
+		
+		// ---
+		
+		const obj = {
+			count: 1
+		}
+		
+		let countValue = obj.count
+		let countDep = new Dep()
+		
+		Object.defineProperty(obj, 'count', {
+			get() {
+				countDep.depend()
+				return  countValue
+			},
+			set(newValue){
+				countValue = newValue
+				countDep.notify()
+			}
+		}) 
+
+		const depStorage = new WeakMap()
+
+		const handlers = {
+			get(target, key){
+				// Locate dependencies in weakmap
+				let deps = depsStorage.get(target)
+				if(!deps){
+					deps = {}
+					depsStorage.set(target, deps)
+				}
+
+				// Locate dependency in dependencies
+				let dep = deps[key]
+				if (!dep) {
+					dep = deps[key] = new Dep()
+				}
+				
+				// Depend
+				dep.depend()
+
+				return target[key]
+			},
+			set(target, key, value){
+				target[key] = value
+				
+				
+				let deps = depsStorage.get(target)
+				if(!deps){
+					return
+				}
+				const dep = deps[key]
+
+				if (dep) {
+					dep.notify()
+				}
+			}
+		}
+		
+		function observable(obj) {
+			return new Proxy(obj, handlers)
+		}
+		
+		const state = observable({
+			count: 0
+		})
+		
+		effect(() => {
+			console.log(state.count)
+		}) // 1
+		
+		state.count++
+		
+		</script>
